@@ -1,0 +1,123 @@
+---
+title: "RepDataAssignment"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Daily Step Tracking##
+
+```{r load_data}
+library(dplyr)
+activity_data <- unzip("activity.zip", files="activity.csv")
+activity_data <- read.csv(activity_data)
+activity_data$date <- as.Date(activity_data$date, "%Y-%m-%d")
+nas <- filter(activity_data, is.na(activity_data$steps))
+na_days <- (unique(nas$date))
+without_nas <- filter(activity_data, steps!="NA")
+```
+
+```{r steps_by_day}
+by_day <- group_by(without_nas, date) 
+steps_by_day <- summarise(by_day, total=sum(steps))
+total_steps <- steps_by_day$total
+hist(total_steps, xlab="steps per day", main="Range and frequency of steps per day")
+```
+
+```{r mean_steps}
+mean(total_steps)
+```
+
+```{r median_steps}
+median(total_steps)
+```
+The mean number of steps per day was **`r mean_steps`**, with a median of **`r median_steps`**.
+
+```{r avgs_per_interval}
+per_interval <- group_by(without_nas, interval)
+steps_per_interval <- summarise(per_interval, avg_steps=mean(steps))
+with(steps_per_interval, plot(interval, avg_steps, type="l", xlab="time of day from midnight to 24:00", ylab="average number of steps", main="Average steps by time of day"))
+ordered <- arrange(steps_per_interval, desc(avg_steps))
+most_active_interval <- ordered[1,1]
+```
+
+The most active interval of the day, on average is **`r most_active_interval`**.
+
+##Missing Values##
+```{r na_rows}
+length(nas$steps)
+```
+For periods of time during the two-month data-collection window, the device used to record steps was inactive, resulting in periods of missing data. There were a total of **`r na_rows`** 5-minute measurement intervals in which data was not collected. 
+
+If necessary, we can fill each of these unmonitored intervals with the average value for that same interal for the rest of the two-month monitoring period.
+
+```{r fill_nas}
+
+activity_no_nas <- activity_data
+nas2 <- filter(activity_no_nas, is.na(activity_no_nas$steps))
+interval_vector <- steps_per_interval$interval
+steps_vector <- steps_per_interval$avg_steps
+for(i in nas2$interval)
+  {x <- which(interval_vector==i)
+  y <- steps_vector[x]
+  activity_no_nas[x,"steps"]<-y}
+```
+
+Now that the missing values have been compensated for, the total number of steps taken per day now looks as follows:
+
+```{r steps_per_day_no_nas}
+by_day_no_nas <- group_by(activity_no_nas, date) 
+daily_steps_no_nas <- summarise(by_day_no_nas, total=sum(steps))
+total_steps_no_nas <- daily_steps_no_nas$total
+hist(total_steps_no_nas, xlab="steps per day", main="Steps per day with missing data accounted for")
+```
+
+```{r mean_steps_no_nas}
+mean(total_steps_no_nas)
+```
+
+```{r median_steps_no_nas}
+median(total_steps_no_nas)
+```
+If we also consider the mean and median of this adjusted data -- **mean = `r mean_steps_no_nas`** and **median = `r median_steps_no_nas`** -- we see that adjusting for the missing data results in a small but notable change.
+
+##Weekdays vs. Weekends##
+
+The collected data shows a notable difference in step counts between weekdays and weekends.
+
+```{r weekdays}
+activity_no_nas <- mutate(activity_no_nas, weekdys = weekdays(date))
+activity_no_nas[, "weekdys"] <- ifelse(activity_no_nas[, "weekdys"]=="Saturday" | activity_no_nas[, "weekdys"]=="Sunday", "weekend","weekday")
+
+library(ggplot2)
+qplot(interval, steps, data=activity_no_nas, facets=weekdys~., geom='line',
+      main="Comparing weekend to weekday step numbers", ylab="number of steps")
+
+activity_no_nas_by_weekdy <- group_by(activity_no_nas, weekdys)
+activity_no_nas_by_weekdy <- summarise(activity_no_nas_by_weekdy, avg=mean(steps))
+with(activity_no_nas, plot(interval, ))
+```
+
+
+
+
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
